@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ case.title }} · 培训{% endblock %}
+{% block content %}
+{% set attempt = case.latest_attempt %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">TRAINING CASE</p>
+    <h1>{{ case.title }}</h1>
+    <p class="muted">
+      {{ case.marketplace }} · {{ case.language }} · 固定 SOP
+      <strong>{{ case.sop.code }} v{{ case.sop.version }}</strong>
+      <code>{{ case.sop.checksum[:12] }}</code>
+    </p>
+  </div>
+  <a class="ghost-button" href="/training">返回案例列表</a>
+</div>
+
+<div class="detail-layout">
+  <div class="detail-main">
+    <section class="card">
+      <h2>匿名案例</h2>
+      <pre class="draft-body">{{ case.anonymized_content }}</pre>
+      <p class="muted">
+        作答要求：覆盖订单归属核实、承运商调查、退款权限、人工审核与结案记录。
+        培训 Agent 只会读取本案例与固定 SOP 版本，不接触真实工单或业务工具。
+      </p>
+    </section>
+
+    {% if attempt %}
+    <section class="card">
+      <div class="section-title">
+        <h2>最近反馈</h2>
+        <span class="badge">{{ attempt.feedback.verdict }}</span>
+      </div>
+      <p>
+        得分 <strong>{{ attempt.score }}</strong> / 100 ·
+        第 {{ attempt.revision_no }} 次提交
+      </p>
+      <p>{{ attempt.feedback.suggestion }}</p>
+      <div class="facts-grid">
+        <div>
+          <h3>已覆盖</h3>
+          <ul class="plain-list">
+            {% for item in attempt.feedback.checklist if item.matched %}
+            <li>{{ item.label }}</li>
+            {% else %}
+            <li class="muted">暂无</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div>
+          <h3>待补足</h3>
+          <ul class="plain-list">
+            {% for item in attempt.feedback.checklist if not item.matched %}
+            <li>{{ item.label }}</li>
+            {% else %}
+            <li class="muted">全部覆盖</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>{% if attempt and attempt.feedback.required_revision %}修订答案{% else %}提交练习{% endif %}</h2>
+      <form id="training-form"
+            data-case-id="{{ case.id }}"
+            data-attempt-id="{% if attempt and attempt.feedback.required_revision %}{{ attempt.id }}{% endif %}">
+        <label>你的处理方案
+          <textarea id="training-answer" name="answer" rows="10"
+            placeholder="用中文或日文描述核实步骤、对买家的回复要点和退款跟进方式。"></textarea>
+        </label>
+        <button type="submit" class="primary-button">
+          {% if attempt and attempt.feedback.required_revision %}提交修订{% else %}提交练习{% endif %}
+        </button>
+      </form>
+      <p class="muted">反馈由固定规则给出，不调用真实模型；每次提交都会保存为新的修订记录。</p>
+    </section>
+  </div>
+
+  <aside class="detail-side">
+    <section class="card">
+      <h2>练习记录</h2>
+      {% if case.attempts %}
+      <table class="ticket-table compact">
+        <thead><tr><th>版本</th><th>得分</th><th>结论</th><th>时间</th></tr></thead>
+        <tbody>
+          {% for item in case.attempts %}
+          <tr>
+            <td>#{{ item.revision_no }}</td>
+            <td>{{ item.score }}</td>
+            <td>{{ item.feedback.verdict }}</td>
+            <td>{{ item.created_at|dt }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="muted">还没有练习记录。</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>固定 SOP</h2>
+      <dl>
+        <dt>编号</dt><dd>{{ case.sop.code }}</dd>
+        <dt>标题</dt><dd>{{ case.sop.title }}</dd>
+        <dt>版本</dt><dd>v{{ case.sop.version }}</dd>
+        <dt>校验和</dt><dd><code>{{ case.sop.checksum }}</code></dd>
+      </dl>
+      <p class="muted">练习期间 SOP 版本固定，不会切换到其他版本。</p>
+    </section>
+  </aside>
+</div>
+{% endblock %}

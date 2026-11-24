@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}登录 · 跨境客服工作台{% endblock %}
+{% block content %}
+<section class="login-shell">
+  <div class="login-card">
+    <p class="eyebrow">ToB 多租户 · 日本站试点</p>
+    <h1>客服工单工作台</h1>
+    <p class="muted">使用企业员工账号登录。所有租户、店铺与角色权限由后端校验。</p>
+    {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="/login" class="stack">
+      <label>
+        邮箱
+        <input type="email" name="email" autocomplete="username" required autofocus>
+      </label>
+      <label>
+        密码
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="primary-button">登录</button>
+    </form>
+    <div class="login-hint">
+      <strong>演示账号</strong>
+      <span>cs.a@example.com（客服）</span>
+      <span>sup.a@example.com（主管）</span>
+      <span>kb.a@example.com（知识管理员）</span>
+      <span>admin.a@example.com（系统管理员）</span>
+      <small>密码由种子脚本的 SEED_PASSWORD 生成，见 README。</small>
+    </div>
+  </div>
+  <aside class="login-aside">
+    <h2>本阶段能力</h2>
+    <ul>
+      <li>已签名的日本站渠道入站，按外部消息 ID 幂等去重</li>
+      <li>会话、工单、消息同事务创建</li>
+      <li>客服仅能访问被授权店铺的工单</li>
+      <li>保留完整日语原文与中文译文位</li>
+    </ul>
+  </aside>
+</section>
+{% endblock %}

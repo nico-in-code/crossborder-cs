@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token or '' }}">
+  <title>{% block title %}跨境客服工作台{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">CS</span>
+      <div>
+        <strong>跨境客服工作台</strong>
+        <small>Multi-tenant service operations</small>
+      </div>
+    </div>
+    {% if employee %}
+    <nav class="nav">
+      <a href="/tickets">工单</a>
+      {% if employee.role.value in ['agent', 'supervisor'] %}
+      <a href="/training">培训</a>
+      {% endif %}
+      {% if employee.role.value in ['knowledge_admin', 'system_admin'] %}
+      <a href="/knowledge">知识</a>
+      {% endif %}
+      {% if employee.role.value == 'system_admin' %}
+      <a href="/employees">员工</a>
+      <a href="/integrations">集成</a>
+      {% endif %}
+      <span class="who">
+        {{ employee.display_name }}
+        <em>
+          {% if employee.role.value == 'agent' %}客服
+          {% elif employee.role.value == 'supervisor' %}主管
+          {% elif employee.role.value == 'knowledge_admin' %}知识管理员
+          {% else %}系统管理员{% endif %}
+        </em>
+      </span>
+      <form method="post" action="/logout" class="inline-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+        <button type="submit" class="ghost-button">退出</button>
+      </form>
+    </nav>
+    {% endif %}
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

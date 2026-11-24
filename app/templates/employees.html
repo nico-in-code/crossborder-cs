@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}员工与权限 · 跨境客服工作台{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">EMPLOYEES &amp; PERMISSIONS</p>
+    <h1>员工与权限</h1>
+    <p class="muted">仅管理本租户员工。角色决定可进入的工作台区域，店铺授权只对客服与主管生效，退款权限影响退款类审批、跟进与结案。</p>
+  </div>
+  <span class="pill">{{ employees|length }} 名员工</span>
+</div>
+
+<section class="card table-card">
+  <table class="ticket-table" id="employee-table">
+    <thead>
+      <tr>
+        <th>员工</th>
+        <th>角色</th>
+        <th>退款权限</th>
+        <th>启用</th>
+        <th>授权店铺</th>
+        <th>加入时间</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in employees %}
+      {% set is_self = emp.id == employee.id|string %}
+      <tr data-employee-id="{{ emp.id }}" data-role="{{ emp.role }}">
+        <td>
+          <strong>{{ emp.display_name }}</strong>
+          {% if is_self %}<span class="badge">当前账号</span>{% endif %}
+          <small class="muted">{{ emp.email }}</small>
+        </td>
+        <td>
+          <select class="employee-role" data-employee-id="{{ emp.id }}"
+                  {% if is_self %}disabled title="不能修改自己的角色"{% endif %}>
+            {% for value, label in role_labels.items() %}
+            <option value="{{ value }}" {% if value == emp.role %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td>
+          <input type="checkbox" class="employee-refund" data-employee-id="{{ emp.id }}"
+                 {% if emp.refund_authority %}checked{% endif %}>
+        </td>
+        <td>
+          <input type="checkbox" class="employee-active" data-employee-id="{{ emp.id }}"
+                 {% if emp.active %}checked{% endif %}
+                 {% if is_self %}disabled title="不能停用自己"{% endif %}>
+        </td>
+        <td>
+          <div class="grant-list">
+            {% for store in emp.stores %}
+            <span class="pill">
+              {{ store.code }}
+              <button type="button" class="grant-revoke" data-employee-id="{{ emp.id }}"
+                      data-store-id="{{ store.id }}" title="回收授权">×</button>
+            </span>
+            {% else %}
+            <span class="muted">无</span>
+            {% endfor %}
+          </div>
+          {% if emp.role in ticket_roles %}
+          <div class="grant-form">
+            <select class="grant-store" data-employee-id="{{ emp.id }}">
+              <option value="">选择店铺</option>
+              {% for store in stores %}
+              <option value="{{ store.id }}">{{ store.code }} · {{ store.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" class="ghost-button grant-add" data-employee-id="{{ emp.id }}">授权</button>
+          </div>
+          {% endif %}
+        </td>
+        <td><small class="muted">{{ emp.created_at|dt }}</small></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">本租户暂无员工。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card table-card">
+  <div class="section-title">
+    <h2>权限变更审计</h2>
+    <span class="muted">最近 20 条</span>
+  </div>
+  <table class="ticket-table compact">
+    <thead>
+      <tr><th>时间</th><th>操作人</th><th>对象</th><th>变更</th></tr>
+    </thead>
+    <tbody>
+      {% for audit in audits %}
+      <tr>
+        <td><small class="muted">{{ audit.created_at|dt }}</small></td>
+        <td>{{ audit.actor_name }}</td>
+        <td>{{ audit.target_name }}</td>
+        <td>{{ audit.summary }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">暂无审计记录。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

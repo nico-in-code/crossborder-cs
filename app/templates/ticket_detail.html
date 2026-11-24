@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% block title %}{{ ticket.number }} · 工单详情{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">{{ store.code }} · {{ store.name }}</p>
+    <h1>{{ ticket.number }}</h1>
+    <p class="muted">
+      买家 {{ conversation.buyer_display_name or conversation.buyer_external_id }}
+      · 创建于 {{ ticket.created_at|dt }}
+    </p>
+  </div>
+  <div class="heading-actions">
+    <span class="badge status-{{ ticket.status|enum_value }}">{{ ticket.status|enum_value }}</span>
+    {% if assignee %}<span class="pill">负责人 {{ assignee.display_name }}</span>{% endif %}
+    <button id="run-agent" class="primary-button" data-ticket-id="{{ ticket.id }}">运行 Agent 分析</button>
+  </div>
+</div>
+
+<div class="detail-layout">
+  <div class="detail-main">
+    <section class="card">
+      <div class="section-title">
+        <h2>会话消息</h2>
+        <span class="muted">{{ messages|length }} 条</span>
+      </div>
+      <div class="message-list">
+        {% for message in messages %}
+        <article class="message message-{{ message.direction|enum_value }}">
+          <header>
+            <span class="message-direction">
+              {% if message.direction|enum_value == 'inbound' %}买家{% else %}客服{% endif %}
+            </span>
+            <time>{{ message.created_at|dt }}</time>
+            <span class="trace">{{ message.trace_id[:10] }}</span>
+          </header>
+          <div class="message-body" lang="{{ message.original_language }}">{{ message.body_text }}</div>
+          <div class="translation">
+            <span class="translation-label">中文译文</span>
+            {% if message.translated_text %}
+              <p>{{ message.translated_text }}</p>
+            {% else %}
+              <p class="muted">待翻译。阶段 2 接入翻译适配器后写入。</p>
+            {% endif %}
+          </div>
+        </article>
+        {% else %}
+        <p class="muted">该工单暂无消息。</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card" id="attachments">
+      <div class="section-title">
+        <h2>附件与 OCR</h2>
+        <span class="muted">{{ attachments|length }} 个</span>
+      </div>
+      <form id="upload-attachment-form" data-ticket-id="{{ ticket.id }}">
+        <input type="file" id="attachment-file" name="file" required>
+        <button type="submit" class="ghost-button">上传附件</button>
+        <span class="muted">支持 jpg / jpeg / png / gif / webp / pdf / txt，单个不超过 {{ (attachment_max_bytes / 1048576)|round(0)|int }} MB。</span>
+      </form>
+      {% if attachments %}
+      <table class="ticket-table compact">
+        <thead><tr><th>文件</th><th>大小</th><th>上传时间</th><th>操作</th></tr></thead>
+        <tbody>
+          {% for item in attachments %}
+          <tr>
+            <td>
+              <a href="/api/tickets/{{ ticket.id }}/attachments/{{ item.id }}" target="_blank" rel="noopener">{{ item.filename }}</a>
+              <small class="muted">{{ item.content_type }}</small>
+            </td>
+            <td>{{ (item.size / 1024)|round(1) }} KB</td>
+            <td>{{ item.created_at|dt }}</td>
+            <td>
+              <button type="button" class="ghost-button ocr-attachment"
+                      data-ticket-id="{{ ticket.id }}" data-attachment-id="{{ item.id }}">OCR</button>
+            </td>
+          </tr>
+          <tr class="ocr-result" data-attachment-id="{{ item.id }}" hidden>
+            <td colspan="4"><pre class="ocr-text"></pre></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="muted">暂无附件。买家发来的图片或截图可上传后按需 OCR。</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>回复草稿</h2>
+        {% if latest_draft %}<span class="pill">v{{ latest_draft.version }}</span>{% endif %}
+      </div>
+      {% if latest_draft %}
+      <pre class="draft-body" lang="ja">{{ latest_draft.body }}</pre>
+      <div class="facts-grid">
+        <div>
+          <h3>买家陈述</h3>
+          <p>{{ latest_draft.structured_facts.buyer_claims.translated_text }}</p>
+          <ul class="tag-list">
+            {% for intent in latest_draft.structured_facts.buyer_claims.intents %}
+            <li class="tag">{{ intent.label }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div>
+          <h3>承运商记录</h3>
+          {% set carrier = latest_draft.structured_facts.carrier_records %}
+          {% if carrier.tracking_no %}
+          <dl>
+            <dt>订单</dt><dd>{{ carrier.order_no }}</dd>
+            <dt>承运商</dt><dd>{{ carrier.carrier }}</dd>
+            <dt>运单</dt><dd>{{ carrier.tracking_no }}</dd>
+            <dt>状态</dt><dd>{{ carrier.delivery_status }}</dd>
+          </dl>
+          {% else %}
+          <p class="muted">暂无已核实的承运商记录。</p>
+          {% endif %}
+        </div>
+        <div>
+          <h3>待核实项</h3>
+          <ul class="plain-list">
+            {% for item in latest_draft.structured_facts.to_verify %}<li>{{ item.zh }}</li>{% endfor %}
+          </ul>
+        </div>
+        <div>
+          <h3>缺口</h3>
+          {% if latest_draft.structured_facts.gaps %}
+          <ul class="plain-list">
+            {% for gap in latest_draft.structured_facts.gaps %}<li>{{ gap }}</li>{% endfor %}
+          </ul>
+          {% else %}
+          <p class="muted">无阻塞缺口。</p>
+          {% endif %}
+        </div>
+      </div>
+      <h3>证据来源</h3>
+      <ul class="evidence-list">
+        {% for item in latest_draft.evidence %}
+        <li>
+          <strong>{{ item.doc_title }}</strong>
+          <span class="muted">v{{ item.version }} · RRF {{ item.rrf_score }} · rerank {{ item.rerank_score }}</span>
+          <p>{{ item.text }}</p>
+        </li>
+        {% else %}
+        <li class="muted">未检索到适用政策证据。</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">尚未运行 Agent 分析。点击右上角“运行 Agent 分析”生成翻译、诉求与日语草稿。</p>
+      {% endif %}
+    </section>
+
+    {% if tool_calls %}
+    <section class="card">
+      <div class="section-title">
+        <h2>工具调用轨迹</h2>
+        <span class="muted">{{ tool_calls|length }} 次</span>
+      </div>
+      <table class="ticket-table">
+        <thead><tr><th>步骤</th><th>工具</th><th>状态</th><th>耗时</th><th>摘要</th></tr></thead>
+        <tbody>
+          {% for call in tool_calls %}
+          <tr>
+            <td>{{ call.step_no }}</td>
+            <td><code>{{ call.tool_name }}</code></td>
+            <td><span class="badge">{{ call.result_status|enum_value }}</span></td>
+            <td>{{ call.duration_ms }} ms</td>
+            <td><code>{{ call.result_summary }}</code>{% if call.denied_reason %}<small class="muted">{{ call.denied_reason }}</small>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    <section class="card">
+      <div class="section-title">
+        <h2>处理轨迹</h2>
+        <span class="muted">{{ events|length }} 个事件</span>
+      </div>
+      <ol class="timeline">
+        {% for event in events %}
+        <li>
+          <strong>{{ event.kind }}</strong>
+          <span class="muted">{{ event.created_at|dt }}</span>
+          {% if event.trace_id %}<code>{{ event.trace_id[:10] }}</code>{% endif %}
+          <pre>{{ event.payload | tojson(indent=2) }}</pre>
+        </li>
+        {% else %}
+        <li class="muted">暂无事件。</li>
+        {% endfor %}
+      </ol>
+    </section>
+  </div>
+
+  <aside class="detail-side">
+    <section class="card">
+      <h2>买家诉求</h2>
+      {% if ticket.intents %}
+      <ul class="tag-list">
+        {% for intent in ticket.intents %}
+        <li class="tag">
+          {% if intent is mapping %}{{ intent.label or intent.code or intent }}{% else %}{{ intent }}{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">等待 Agent 意图分析。</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>风险标记</h2>
+      {% if ticket.risk_flags %}
+      <ul class="tag-list">
+        {% for flag in ticket.risk_flags %}
+        <li class="tag risk">{{ flag }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">暂无风险标记。</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>订单候选</h2>
+      {% if ticket.order_candidates %}
+      <ul class="plain-list">
+        {% for order_no in ticket.order_candidates %}<li><code>{{ order_no }}</code></li>{% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">买家未提供订单号；阶段 2 将通过服务端范围查询买家近期订单。</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>工单诊断</h2>
+        {% if latest_diagnosis %}<span class="pill">{{ latest_diagnosis.path }}</span>{% endif %}
+      </div>
+      <button id="run-diagnosis" class="ghost-button" data-ticket-id="{{ ticket.id }}">
+        {% if latest_diagnosis %}重新诊断{% else %}运行诊断 Agent{% endif %}
+      </button>
+      {% if latest_diagnosis %}
+      <ul class="plain-list">
+        {% for reason in latest_diagnosis.reasons %}<li>{{ reason }}</li>{% endfor %}
+      </ul>
+      {% if latest_diagnosis.requires_manual_review %}
+      <p class="alert">诊断结果需要人工复核，暂不发送对外承诺。</p>
+      {% endif %}
+      <p class="muted">
+        SOP
+        {% if latest_diagnosis.evidence.sop %}
+          {{ latest_diagnosis.evidence.sop.code }} v{{ latest_diagnosis.evidence.sop.version }}
+        {% else %}缺失{% endif %}
+        · 工具证据 {{ latest_diagnosis.evidence.tool_calls|length }} 次
+        · 来信 {{ latest_diagnosis.evidence.messages|length }} 条
+        {% if latest_diagnosis.evidence.draft %}· 草稿 v{{ latest_diagnosis.evidence.draft.version }}{% endif %}
+      </p>
+      {% if latest_diagnosis.recommendation %}
+      <form id="apply-diagnosis-form"
+            data-ticket-id="{{ ticket.id }}"
+            data-diagnosis-id="{{ latest_diagnosis.diagnosis_id }}">
+        <label>下一步<textarea name="next_step" rows="4">{{ latest_diagnosis.recommendation.next_step }}</textarea></label>
+        <label>下一负责人
+          <select name="next_owner_id">
+            <option value="">暂不指定</option>
+            {% for owner in owners %}
+            <option value="{{ owner.id }}"
+              {% if latest_diagnosis.recommendation.next_owner and latest_diagnosis.recommendation.next_owner.id == owner.id|string %}selected{% endif %}>
+              {{ owner.display_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>跟进时间<input type="datetime-local" name="next_follow_up_at"
+          value="{{ latest_diagnosis.recommendation.next_follow_up_at|dtlocal }}"></label>
+        <button type="submit" class="primary-button">确认写回</button>
+      </form>
+      {% endif %}
+      {% else %}
+      <p class="muted">诊断会读取来信、草稿证据、已批准 SOP 与工具结果，给出复用 / 重查 / 转人工结论；写回需人工确认。</p>
+      {% endif %}
+      {% if ticket.next_step or next_owner or ticket.next_follow_up_at %}
+      <h3>当前写回</h3>
+      <ul class="plain-list">
+        {% if ticket.next_step %}<li>下一步：{{ ticket.next_step }}</li>{% endif %}
+        {% if next_owner %}<li>下一负责人：{{ next_owner.display_name }}</li>{% endif %}
+        {% if ticket.next_follow_up_at %}<li>跟进时间：{{ ticket.next_follow_up_at|dt }}</li>{% endif %}
+      </ul>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>审核与发送</h2>
+      {% if workflow %}
+      <p class="muted">
+        工作流检查点：
+        <code>{{ workflow.values.status or 'awaiting_review' }}</code>
+        · 下一步：{{ workflow.next|join(', ') or '已完成' }}
+      </p>
+      {% endif %}
+      {% set approved = reviews|selectattr('is_current')|selectattr('decision', 'equalto', 'approved')|list %}
+      {% if latest_draft %}
+        {% if approved %}
+        <p class="pill">已批准 v{{ latest_draft.version }}</p>
+        {% else %}
+        <button id="approve-draft" class="primary-button"
+                data-ticket-id="{{ ticket.id }}"
+                data-draft-id="{{ latest_draft.id }}"
+                data-content-hash="{{ latest_draft.content_hash }}">批准最新草稿</button>
+        {% endif %}
+        <details class="inline-editor">
+          <summary>修改草稿并生成新版本</summary>
+          <textarea id="draft-edit-body" rows="8" lang="ja">{{ latest_draft.body }}</textarea>
+          <button id="save-draft" class="ghost-button"
+                  data-ticket-id="{{ ticket.id }}">保存为新版本</button>
+        </details>
+        <button id="reject-draft" class="ghost-button"
+                data-ticket-id="{{ ticket.id }}"
+                data-draft-id="{{ latest_draft.id }}">驳回草稿</button>
+      {% else %}
+      <p class="muted">尚未生成草稿。</p>
+      {% endif %}
+
+      {% if reviews %}
+      <h3>审核记录</h3>
+      <ul class="plain-list">
+        {% for review in reviews %}
+        <li>
+          v{{ review.draft_version }} · {{ review.decision|enum_value }}
+          {% if review.is_current %}<span class="pill">当前</span>{% endif %}
+          <small class="muted">{{ review.draft_content_hash[:12] }}</small>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      <h3>发送任务</h3>
+      {% if send_tasks %}
+      <table class="ticket-table compact">
+        <thead><tr><th>状态</th><th>尝试</th><th>幂等键</th><th>错误</th></tr></thead>
+        <tbody>
+          {% for task in send_tasks %}
+          <tr>
+            <td><span class="badge">{{ task.status|enum_value }}</span></td>
+            <td>{{ task.attempt_count }}</td>
+            <td><code>{{ task.idempotency_key[-20:] }}</code></td>
+            <td>{{ task.last_error or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="muted">批准草稿后生成发送任务。</p>
+      {% endif %}
+      {% if send_attempts %}
+      <h3>发送尝试</h3>
+      <ul class="plain-list">
+        {% for attempt in send_attempts %}
+        <li>
+          #{{ attempt.attempt_no }} · {{ attempt.outcome|enum_value }}
+          · {{ attempt.response_code or '—' }}
+          {% if attempt.external_send_id %}<code>{{ attempt.external_send_id }}</code>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if channel_receipts %}
+      <h3>渠道回执</h3>
+      <p class="muted">已持久化 {{ channel_receipts|length }} 条回执，按幂等键去重。</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>退款/回复跟进</h2>
+      {% if followups %}
+        {% for followup in followups %}
+        <form class="followup-form" data-ticket-id="{{ ticket.id }}" data-followup-id="{{ followup.id }}">
+          <p class="muted">{{ followup.kind }} · {{ followup.status|enum_value }}</p>
+          <label>结论<textarea name="conclusion" rows="2">{{ followup.conclusion or '' }}</textarea></label>
+          <label>依据<textarea name="basis" rows="2">{{ followup.basis or '' }}</textarea></label>
+          <label class="checkbox"><input type="checkbox" name="notified" {% if followup.notified_at %}checked{% endif %}> 已告知买家</label>
+          <button type="submit" class="ghost-button">保存跟进</button>
+        </form>
+        {% endfor %}
+      {% else %}
+      <p class="muted">发送成功后自动创建退款/回复跟进待办。</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>结案</h2>
+      <form id="close-ticket-form" data-ticket-id="{{ ticket.id }}">
+        <label>最终结论<textarea name="conclusion" rows="2"></textarea></label>
+        <label>依据<textarea name="basis" rows="2"></textarea></label>
+        <label class="checkbox"><input type="checkbox" name="notified"> 已告知买家</label>
+        <button type="submit" class="primary-button">结案</button>
+      </form>
+      <p class="muted">结案需跟进结论、依据、已告知，且无未决发送任务。</p>
+    </section>
+
+    <section class="card meta-card">
+      <h2>工单信息</h2>
+      <dl>
+        <dt>租户</dt><dd>{{ employee.tenant_id }}</dd>
+        <dt>店铺</dt><dd>{{ store.code }}</dd>
+        <dt>买家</dt><dd>{{ conversation.buyer_external_id }}</dd>
+        <dt>更新时间</dt><dd>{{ ticket.updated_at|dt }}</dd>
+        <dt>工单 ID</dt><dd><code>{{ ticket.id }}</code></dd>
+      </dl>
+    </section>
+  </aside>
+</div>
+{% endblock %}

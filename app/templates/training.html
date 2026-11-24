@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}培训 · 跨境客服工作台{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">TRAINING</p>
+    <h1>客服培训</h1>
+    <p class="muted">仅使用本租户已批准的匿名案例与固定 SOP 版本；练习答案只对当前账号可见。</p>
+  </div>
+  <span class="pill">{{ cases|length }} 个案例</span>
+</div>
+
+{% if cases %}
+<section class="card table-card">
+  <table class="ticket-table">
+    <thead>
+      <tr>
+        <th>案例</th>
+        <th>市场 / 语言</th>
+        <th>SOP 版本</th>
+        <th>我的尝试</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for case in cases %}
+      <tr>
+        <td><strong>{{ case.title }}</strong></td>
+        <td>{{ case.marketplace }} · {{ case.language }}</td>
+        <td>{{ case.sop.code }} v{{ case.sop.version }}</td>
+        <td>{{ case.attempt_count }}</td>
+        <td><a class="ticket-link" href="/training/{{ case.id }}">开始练习</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section class="card empty-state">
+  <h2>当前没有可用的培训案例</h2>
+  <p>等待知识管理员发布已批准的匿名案例。</p>
+</section>
+{% endif %}
+{% endblock %}

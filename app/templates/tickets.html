@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}工单列表 · 跨境客服工作台{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">QUEUE</p>
+    <h1>我的工单</h1>
+    <p class="muted">仅显示当前账号被授权店铺的工单。</p>
+  </div>
+  <div class="heading-meta">
+    <span class="pill">{{ tickets|length }} 个工单</span>
+  </div>
+</div>
+
+{% if tickets %}
+<section class="card table-card">
+  <table class="ticket-table">
+    <thead>
+      <tr>
+        <th>工单</th>
+        <th>店铺</th>
+        <th>状态</th>
+        <th>诉求</th>
+        <th>优先级</th>
+        <th>更新时间</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ticket, store in tickets %}
+      <tr>
+        <td>
+          <a class="ticket-link" href="/tickets/{{ ticket.id }}">{{ ticket.number }}</a>
+        </td>
+        <td>
+          <strong>{{ store.code }}</strong>
+          <small class="muted">{{ store.name }}</small>
+        </td>
+        <td>
+          <span class="badge status-{{ ticket.status|enum_value }}">{{ ticket.status|enum_value }}</span>
+        </td>
+        <td>
+          {% if ticket.intents %}
+            <span class="pill">{{ ticket.intents|length }} 项</span>
+          {% else %}
+            <span class="muted">待 Agent 分析</span>
+          {% endif %}
+        </td>
+        <td>{{ ticket.priority }}</td>
+        <td>{{ ticket.updated_at|dt }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section class="card empty-state">
+  <h2>当前没有可见工单</h2>
+  <p>先运行日本站样例回放：</p>
+  <code>uv run python scripts/replay_sample.py</code>
+</section>
+{% endif %}
+{% endblock %}

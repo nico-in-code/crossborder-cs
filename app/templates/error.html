@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ status_code }} · 无法访问{% endblock %}
+{% block content %}
+<section class="card empty-state">
+  <p class="eyebrow">ERROR {{ status_code }}</p>
+  <h1>{{ message }}</h1>
+  <p class="muted">为避免泄露其他租户或未授权店铺的信息，系统统一返回该提示。</p>
+  <a class="primary-button" href="/tickets">返回工单列表</a>
+</section>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}知识索引 · 跨境客服工作台{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">KNOWLEDGE INDEX</p>
+    <h1>知识索引</h1>
+    <p class="muted">发布已批准的知识版本为索引快照；发布失败时保留上一个可用版本。</p>
+  </div>
+  {% if active %}
+  <span class="pill">active · {{ active.collection }}</span>
+  {% else %}
+  <span class="pill">尚无 active 快照</span>
+  {% endif %}
+</div>
+
+<section class="card">
+  <div class="section-title">
+    <h2>当前生效快照</h2>
+  </div>
+  {% if active %}
+  <ul class="plain-list">
+    <li>集合 <code>{{ active.collection }}</code></li>
+    <li>版本数 {{ active.version_ids|length }}</li>
+    <li>激活时间 {{ active.activated_at|dt }}</li>
+    <li>快照 ID <code>{{ active.id }}</code></li>
+  </ul>
+  {% else %}
+  <p class="muted">还没有发布过索引。选择下方已批准版本后发布。</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="section-title">
+    <h2>发布新快照</h2>
+    <span class="muted">{{ versions|length }} 个已批准版本</span>
+  </div>
+  {% if versions %}
+  <div class="version-list">
+    {% for version in versions %}
+    <label class="checkbox-row">
+      <input type="checkbox" name="version_ids" value="{{ version.id }}">
+      <span>
+        <strong>{{ version.doc_title }}</strong>
+        <small class="muted">v{{ version.version }} · {{ version.marketplace }} · {{ version.language }} · {{ version.status }}</small>
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+  <button id="publish-index" class="primary-button">发布所选版本</button>
+  {% else %}
+  <p class="muted">没有已批准的知识版本，请先完成知识审核。</p>
+  {% endif %}
+</section>
+
+<section class="card table-card">
+  <table class="ticket-table">
+    <thead>
+      <tr><th>状态</th><th>集合</th><th>版本数</th><th>激活时间</th><th>错误</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for snapshot in snapshots %}
+      <tr>
+        <td><span class="badge">{{ snapshot.status }}</span></td>
+        <td><code>{{ snapshot.collection }}</code></td>
+        <td>{{ snapshot.version_ids|length }}</td>
+        <td>{{ snapshot.activated_at|dt }}</td>
+        <td>{% if snapshot.error %}<small class="muted">{{ snapshot.error }}</small>{% else %}-{% endif %}</td>
+        <td>
+          {% if snapshot.status == 'superseded' %}
+          <button type="button" class="ghost-button rollback-index" data-snapshot-id="{{ snapshot.id }}">回滚到该快照</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">暂无快照记录。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

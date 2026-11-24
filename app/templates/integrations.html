@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}集成状态 · 跨境客服工作台{% endblock %}
+{% block content %}
+{% set labels = {
+  "amazon_sp_api": "Amazon SP-API 订单",
+  "channel": "试点渠道",
+  "track17": "17TRACK 物流",
+  "erp": "ERP 库存",
+  "translation": "翻译网关",
+  "milvus": "Milvus 向量索引"
+} %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">INTEGRATIONS</p>
+    <h1>集成状态</h1>
+    <p class="muted">真实调用需要同时启用开关、配置凭据并授权店铺；否则统一走本地确定性实现。</p>
+  </div>
+  <span class="pill">{{ status.enabled_store_ids|length }} 个已启用店铺</span>
+</div>
+
+<section class="card table-card">
+  <table class="ticket-table">
+    <thead>
+      <tr><th>集成</th><th>开关</th><th>凭据</th><th>生效</th><th>范围</th></tr>
+    </thead>
+    <tbody>
+      {% for key, item in status.integrations.items() %}
+      <tr>
+        <td><strong>{{ labels.get(key, key) }}</strong></td>
+        <td>{{ "是" if item.enabled else "否" }}</td>
+        <td>{{ "是" if item.configured else "否" }}</td>
+        <td><span class="badge">{{ "active" if item.active else "inactive" }}</span></td>
+        <td>{{ "店铺" if item.scope == "store" else "租户" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <div class="section-title">
+    <h2>已启用店铺</h2>
+  </div>
+  {% if status.enabled_store_ids %}
+  <ul class="plain-list">
+    {% for store_id in status.enabled_store_ids %}<li><code>{{ store_id }}</code></li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">`INTEGRATION_ENABLED_STORE_IDS` 为空，所有真实调用关闭。</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="section-title">
+    <h2>本地替身</h2>
+  </div>
+  <ul class="plain-list">
+    {% for key, value in status.local_stand_ins.items() %}
+    <li>{{ key }}：<code>{{ value }}</code></li>
+    {% endfor %}
+  </ul>
+  <p class="muted">{{ status.note }}</p>
+</section>
+{% endblock %}

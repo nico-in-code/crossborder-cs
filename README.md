@@ -144,9 +144,3 @@ uv run pytest -q
 - 附件按租户/店铺/工单授权访问，跨租户/跨工单返回 404，对象路径做存储根目录越界校验。
 - 不回写外部业务系统；Amazon/物流/ERP 适配器只读。
 
-## 当前状态
-
-- 阶段 1–5 本地验收通过。
-- 工作台已完成浏览器实测：工单附件上传与 OCR、`/knowledge` 发布/回滚快照、`/integrations` 状态页、`/employees` 角色/退款权限/店铺授权变更与审计，以及客服访问这些管理页返回 403。
-- 真实 Amazon、渠道、17TRACK、ERP、翻译、Milvus、OCR 调用未执行：缺少店铺授权与凭据；合同已用 `httpx.MockTransport` 覆盖成功、403、500、超时与 `NotConfigured`。
-- 详细状态见 [docs/integration-status.md](docs/integration-status.md)。
